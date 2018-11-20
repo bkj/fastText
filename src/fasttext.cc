@@ -699,6 +699,8 @@ void FastText::train(const Args args) {
     // manage expectations
     throw std::invalid_argument("Cannot use stdin for training!");
   }
+
+  // Dictionary construction
   std::ifstream ifs(args_->input);
   if (!ifs.is_open()) {
     throw std::invalid_argument(
@@ -707,11 +709,14 @@ void FastText::train(const Args args) {
   dict_->readFromFile(ifs);
   ifs.close();
 
+  std::ifstream ifs2(args_->input);
+  dict_->cacheLines(ifs2);
+  ifs2.close();
+
   if (args_->pretrainedVectors.size() != 0) {
     loadVectors(args_->pretrainedVectors);
   } else {
-    input_ =
-        std::make_shared<Matrix>(dict_->nwords() + args_->bucket, args_->dim);
+    input_ = std::make_shared<Matrix>(dict_->nwords() + args_->bucket, args_->dim);
     input_->uniform(1.0 / args_->dim);
   }
 
@@ -736,7 +741,8 @@ void FastText::startThreads() {
   loss_ = -1;
   std::vector<std::thread> threads;
   for (int32_t i = 0; i < args_->thread; i++) {
-    threads.push_back(std::thread([=]() { trainThread(i); }));
+    threads.push_back(std::thread([=]() {
+      trainThread(i);}));
   }
   const int64_t ntokens = dict_->ntokens();
   // Same condition as trainThread
