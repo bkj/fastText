@@ -67,6 +67,10 @@ class Dictionary {
   static const std::string BOW;
   static const std::string EOW;
 
+  std::vector<std::string> all_tokens_;
+  std::vector<int64_t> all_offsets_;
+  int32_t num_lines;
+
   explicit Dictionary(std::shared_ptr<Args>);
   explicit Dictionary(std::shared_ptr<Args>, std::istream&);
   int32_t nwords() const;
@@ -100,8 +104,9 @@ class Dictionary {
       const;
   int32_t getLine(std::istream&, std::vector<int32_t>&, std::minstd_rand&)
       const;
-  int32_t cacheLines(std::istream&)
-      const;
+  int32_t cacheLines(std::istream&);
+  int32_t getCachedLine(int32_t, std::vector<int32_t>&, std::vector<int32_t>&)
+    const;
 
   void threshold(int64_t, int64_t);
   void prune(std::vector<int32_t>&);

@@ -19,6 +19,8 @@
 #include <thread>
 #include <vector>
 
+#define PRELOAD_DATA
+
 namespace fasttext {
 
 constexpr int32_t FASTTEXT_VERSION = 12; /* Version 1b */
@@ -329,6 +331,7 @@ void FastText::supervised(
     real lr,
     const std::vector<int32_t>& line,
     const std::vector<int32_t>& labels) {
+
   if (labels.size() == 0 || line.size() == 0) {
     return;
   }
@@ -614,6 +617,10 @@ void FastText::trainThread(int32_t threadId) {
   std::ifstream ifs(args_->input);
   utils::seek(ifs, threadId * utils::size(ifs) / args_->thread);
 
+#ifdef PRELOAD_DATA
+  int idx = threadId * dict_->num_lines / args_->thread;
+#endif
+
   Model model(input_, output_, args_, threadId);
   if (args_->model == model_name::sup) {
     model.setTargetCounts(dict_->getCounts(entry_type::label));
@@ -628,8 +635,17 @@ void FastText::trainThread(int32_t threadId) {
     real progress = real(tokenCount_) / (args_->epoch * ntokens);
     real lr = args_->lr * (1.0 - progress);
     if (args_->model == model_name::sup) {
-      localTokenCount += dict_->getLine(ifs, line, labels);
+
+#ifdef PRELOAD_DATA
+      int ntoks = dict_->getCachedLine(idx, line, labels);
+      idx = (idx + 1) % dict_->num_lines;
+#else
+      int ntoks = dict_->getLine(ifs, line, labels);
+#endif
+
+      localTokenCount += ntoks;
       supervised(model, lr, line, labels);
+
     } else if (args_->model == model_name::cbow) {
       localTokenCount += dict_->getLine(ifs, line, model.rng);
       cbow(model, lr, line);
@@ -709,9 +725,11 @@ void FastText::train(const Args args) {
   dict_->readFromFile(ifs);
   ifs.close();
 
+#ifdef PRELOAD_DATA
   std::ifstream ifs2(args_->input);
   dict_->cacheLines(ifs2);
   ifs2.close();
+#endif
 
   if (args_->pretrainedVectors.size() != 0) {
     loadVectors(args_->pretrainedVectors);

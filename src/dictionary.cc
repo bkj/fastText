@@ -376,44 +376,6 @@ int32_t Dictionary::getLine(
   return ntokens;
 }
 
-int32_t Dictionary::cacheLines(std::istream& in) const {
-
-  std::cerr << "cacheLines" << std::endl;
-
-  std::vector<int32_t> word_hashes;
-  std::string token;
-  int32_t ntokens = 0;
-
-  std::vector<int32_t> words;
-  std::vector<int32_t> labels;
-  reset(in);
-
-  while(!in.eof()) {
-    words.clear();
-    labels.clear();
-    while (readWord(in, token)) {
-      uint32_t h = hash(token);
-      int32_t wid = getId(token, h);
-      entry_type type = wid < 0 ? getType(token) : getType(wid);
-
-      ntokens++;
-      if (type == entry_type::word) {
-        addSubwords(words, token, wid);
-        word_hashes.push_back(h);
-      } else if (type == entry_type::label && wid >= 0) {
-        labels.push_back(wid - nwords_);
-      }
-      if (token == EOS) {
-        addWordNgrams(words, word_hashes, args_->wordNgrams);
-        break;
-      }
-    }
-  }
-
-  std::cerr << "ntokens=" << ntokens << std::endl;
-  return ntokens;
-}
-
 int32_t Dictionary::getLine(
     std::istream& in,
     std::vector<int32_t>& words,
@@ -444,6 +406,58 @@ int32_t Dictionary::getLine(
   }
   addWordNgrams(words, word_hashes, args_->wordNgrams);
   return ntokens;
+}
+
+int32_t Dictionary::cacheLines(std::istream& in) {
+  std::cerr << "loading data into cache" << std::endl;
+  int32_t offset = 0;
+  std::string token;
+
+  reset(in);
+  all_offsets_.push_back(0);
+  num_lines = 0;
+  while (readWord(in, token)) {
+    all_tokens_.push_back(token);
+    offset++;
+    if (token == EOS) {
+      all_offsets_.push_back(offset);
+      num_lines++;
+    }
+  }
+  return 0;
+}
+
+int32_t Dictionary::getCachedLine(
+    int idx,
+    std::vector<int32_t>& words,
+    std::vector<int32_t>& labels) const {
+
+  std::vector<int32_t> word_hashes;
+  std::string token;
+
+  words.clear();
+  labels.clear();
+
+  int64_t ntokens = all_offsets_[idx + 1] - all_offsets_[idx];
+  for(int offset = all_offsets_[idx]; offset < all_offsets_[idx + 1]; offset++){
+    token = all_tokens_[offset];
+    uint32_t h = hash(token);
+    int32_t wid = getId(token, h);
+    entry_type type = wid < 0 ? getType(token) : getType(wid);
+
+    if (type == entry_type::word) {
+      addSubwords(words, token, wid);
+      word_hashes.push_back(h);
+    } else if (type == entry_type::label && wid >= 0) {
+      labels.push_back(wid - nwords_);
+    }
+    if (token == EOS) {
+      break;
+    }
+  }
+
+  addWordNgrams(words, word_hashes, args_->wordNgrams);
+  return (int32_t)ntokens;
 }
 
 void Dictionary::pushHash(std::vector<int32_t>& hashes, int32_t id) const {
