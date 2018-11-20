@@ -376,10 +376,49 @@ int32_t Dictionary::getLine(
   return ntokens;
 }
 
+int32_t Dictionary::cacheLines(std::istream& in) const {
+
+  std::cerr << "cacheLines" << std::endl;
+
+  std::vector<int32_t> word_hashes;
+  std::string token;
+  int32_t ntokens = 0;
+
+  std::vector<int32_t> words;
+  std::vector<int32_t> labels;
+  reset(in);
+
+  while(!in.eof()) {
+    words.clear();
+    labels.clear();
+    while (readWord(in, token)) {
+      uint32_t h = hash(token);
+      int32_t wid = getId(token, h);
+      entry_type type = wid < 0 ? getType(token) : getType(wid);
+
+      ntokens++;
+      if (type == entry_type::word) {
+        addSubwords(words, token, wid);
+        word_hashes.push_back(h);
+      } else if (type == entry_type::label && wid >= 0) {
+        labels.push_back(wid - nwords_);
+      }
+      if (token == EOS) {
+        addWordNgrams(words, word_hashes, args_->wordNgrams);
+        break;
+      }
+    }
+  }
+
+  std::cerr << "ntokens=" << ntokens << std::endl;
+  return ntokens;
+}
+
 int32_t Dictionary::getLine(
     std::istream& in,
     std::vector<int32_t>& words,
     std::vector<int32_t>& labels) const {
+
   std::vector<int32_t> word_hashes;
   std::string token;
   int32_t ntokens = 0;
