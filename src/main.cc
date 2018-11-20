@@ -190,7 +190,7 @@ void predict(const std::vector<std::string>& args) {
       std::cerr << "Input file cannot be opened!" << std::endl;
       exit(EXIT_FAILURE);
     }
-    fasttext.predict(ifs, k, print_prob, threshold);
+    fasttext.batch_predict(ifs, k, print_prob, threshold);
     ifs.close();
   }
 

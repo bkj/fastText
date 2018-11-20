@@ -415,12 +415,51 @@ void FastText::predict(
     int32_t k,
     bool print_prob,
     real threshold) {
+
   std::vector<std::pair<real, int32_t>> predictions;
   while (in.peek() != EOF) {
     std::vector<int32_t> words, labels;
     dict_->getLine(in, words, labels);
     predictions.clear();
     predict(k, words, predictions, threshold);
+    if (predictions.empty()) {
+      std::cout << std::endl;
+      continue;
+    }
+    for (auto it = predictions.cbegin(); it != predictions.cend(); it++) {
+      if (it != predictions.cbegin()) {
+        std::cout << " ";
+      }
+      std::cout << dict_->getLabel(it->second);
+      if (print_prob) {
+        std::cout << " " << std::exp(it->first);
+      }
+    }
+    std::cout << std::endl;
+  }
+}
+
+void FastText::batch_predict(
+    std::istream& in,
+    int32_t k,
+    bool print_prob,
+    real threshold) {
+
+  std::vector<std::vector<int32_t>> all_words;
+  int num_lines = 0;
+  std::vector<int32_t> words, labels;
+  while (in.peek() != EOF) {
+    words.clear();
+    labels.clear();
+    dict_->getLine(in, words, labels);
+    all_words.push_back(words);
+    num_lines++;
+  }
+
+  std::vector<std::pair<real, int32_t>> predictions;
+  for(int i = 0; i < num_lines; i++) {
+    predictions.clear();
+    predict(k, all_words[i], predictions, threshold);
     if (predictions.empty()) {
       std::cout << std::endl;
       continue;
